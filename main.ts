@@ -213,16 +213,21 @@ class FarBank {
     this.drawStone(this.currentStoneWorldX, this.currentStoneWidth);
     this.drawStone(this.currentStoneWorldX + this.gap.distance, this.gap.stoneWidth);
 
-    // charge meter --- the single accent colour marks the moment of decision
+    // charge meter --- the single accent colour marks the moment of decision.
+    // Sized to stay legible scaled down to the ~350px-wide mobile canvas,
+    // where a smaller bar (found by playing at that viewport) read as a
+    // barely-visible sliver.
     if (this.phase === "charging") {
       const t = Math.min((now - this.chargeStart) / MAX_CHARGE_MS, 1);
-      const barX = PLAYER_X - 20;
-      const barY = WATER_Y - 90;
-      ctx.strokeStyle = "rgba(36, 33, 29, 0.4)";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(barX, barY, 40, 10);
+      const barWidth = 70;
+      const barHeight = 16;
+      const barX = PLAYER_X - barWidth / 2;
+      const barY = WATER_Y - 100;
+      ctx.strokeStyle = "rgba(36, 33, 29, 0.5)";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(barX, barY, barWidth, barHeight);
       ctx.fillStyle = "#a13f2f";
-      ctx.fillRect(barX + 1, barY + 1, 38 * t, 8);
+      ctx.fillRect(barX + 2, barY + 2, (barWidth - 4) * t, barHeight - 4);
     }
 
     // player
