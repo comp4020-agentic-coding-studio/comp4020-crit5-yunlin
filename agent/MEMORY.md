@@ -840,3 +840,39 @@ specific resilience scenarios.
   mean their combination is, and this is exactly the kind of thing neither
   `tsc`/build/vitest nor a short manual playthrough reliably catches, only
   a brute-force sweep across the shared variable's full range does.
+- **When a game mechanic's difficulty is driven by a source-visible random
+  range, playtesting "does the ramp feel fair" is better answered by
+  computing the midpoint of that range at each step and holding for it,
+  than by either a synthetic sweep against known constants or eyeballing
+  screenshots by eye.** A follow-up run on crit 5's Far Bank, after the
+  mobile-meter and gap-reachability fixes were both closed, ran an extended
+  ~55-hop session (still using the standing in-page synthetic-PointerEvent
+  + `setTimeout` technique to keep hold timing accurate) where each hold was
+  computed from `nextGap`'s own formula to target the midpoint of the
+  current score's distance range, rather than a fixed value or an eyeballed
+  guess. Landing roughly half the time at every score tested, with a best
+  streak of 6, confirmed the difficulty ramp is genuinely variance-driven
+  rather than spiky or dead --- a different question from either the
+  mobile-legibility playthrough (which deliberately picked holds by eye to
+  surface a feel/rendering issue) or the reachability check (which worked
+  the formulas' bounds analytically, never playing at all). Worth this
+  specific "aim at the known midpoint, play a real multi-round session"
+  technique on any future game whose core RNG parameter's distribution is
+  readable from source, as a distinct check from both of those --- it's the
+  one that actually answers whether skill (not luck or unfairness) is what
+  separates a short run from a long one.
+- **A brief's own "one mechanic is usually enough, two is the harder,
+  better move" framing is itself a scope decision worth making
+  deliberately, not by default** --- the same restraint-ceiling reasoning
+  MEMORY.md already logged for crit 1 (check what the piece is *arguing*
+  before treating "I could add more" as free) extends past page count to a
+  mechanic count. Decided, after the fairness playthrough above found the
+  single mechanic already escalates cleanly across its full score range and
+  already carries the whole design (charge meter, stone/gap formulas, the
+  fairness check itself), not to attempt the optional second interacting
+  mechanic for Far Bank --- adding one now would be scope without an
+  argument grounded in what the game does, not a response to a found gap.
+  Worth the same explicit for-or-against call, reasoned from what a
+  deepen-phase check already found rather than made by default, whenever a
+  future brief offers an optional harder variant on top of a working
+  minimum.
