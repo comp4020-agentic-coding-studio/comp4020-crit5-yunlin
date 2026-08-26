@@ -53,7 +53,7 @@ class FarBank {
 
   private currentStoneWorldX = 0;
   private currentStoneWidth = START_STONE_WIDTH;
-  private gap: Gap = nextGap(0);
+  private gap: Gap = nextGap(0, Math.random, MAX_DISTANCE);
   private scrollOffset = 0;
 
   private chargeStart = 0;
@@ -110,7 +110,7 @@ class FarBank {
     this.score = 0;
     this.currentStoneWorldX = 0;
     this.currentStoneWidth = START_STONE_WIDTH;
-    this.gap = nextGap(0);
+    this.gap = nextGap(0, Math.random, MAX_DISTANCE);
     this.scrollOffset = 0;
     this.updateScoreText();
   }
@@ -129,7 +129,7 @@ class FarBank {
             this.best = this.score;
             saveBest(this.best);
           }
-          this.gap = nextGap(this.score);
+          this.gap = nextGap(this.score, Math.random, MAX_DISTANCE);
           this.settleFrom = this.scrollOffset;
           this.settleStart = now;
           this.phase = "settling";

@@ -29,11 +29,15 @@ export function resolveJump(jumpDistance: number, gap: Gap): JumpOutcome {
 
 /** Each cleared hop narrows the stone and widens the gap range --- the one
  *  mechanic (judge the hold) gets harder to judge, rather than a second
- *  mechanic being introduced. */
-export function nextGap(score: number, random: () => number = Math.random): Gap {
+ *  mechanic being introduced. `maxReachable` is the longest jump a full-power
+ *  hold can produce (`chargeToDistance`'s own cap): the gap's near edge is
+ *  clamped to stay inside it, so a high score never hands out a stone that
+ *  no hold, however well timed, could actually reach. */
+export function nextGap(score: number, random: () => number = Math.random, maxReachable = 260): Gap {
   const minDistance = 90;
-  const maxDistance = 140 + Math.min(score * 6, 130);
-  const distance = minDistance + random() * (maxDistance - minDistance);
   const stoneWidth = Math.max(46 - Math.min(score * 1.1, 28), 18);
+  const rawMaxDistance = 140 + Math.min(score * 6, 130);
+  const maxDistance = Math.min(rawMaxDistance, maxReachable + stoneWidth / 2);
+  const distance = minDistance + random() * (maxDistance - minDistance);
   return { distance, stoneWidth };
 }

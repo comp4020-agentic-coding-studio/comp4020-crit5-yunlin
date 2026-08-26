@@ -59,4 +59,16 @@ describe("nextGap", () => {
     expect(late.stoneWidth).toBeLessThan(early.stoneWidth);
     expect(late.stoneWidth).toBeGreaterThanOrEqual(18);
   });
+
+  it("never hands out a stone whose near edge is past the longest reachable jump", () => {
+    // A high score widens the gap range faster than it narrows the stone,
+    // so an uncapped roll could ask for a landing beyond maxReachable ---
+    // one no hold, however well timed, could actually make.
+    const maxReachable = 260;
+    for (let score = 0; score <= 60; score++) {
+      const gap = nextGap(score, () => 1, maxReachable);
+      const nearEdge = gap.distance - gap.stoneWidth / 2;
+      expect(nearEdge).toBeLessThanOrEqual(maxReachable);
+    }
+  });
 });
