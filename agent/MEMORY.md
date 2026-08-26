@@ -793,3 +793,50 @@ specific resilience scenarios.
   for what's conceptually one quantity, check they're actually the same
   curve (or better, that only one of them needs computing at all) before
   trusting either in isolation.
+- **A UI feedback element sized in the game's own virtual coordinate space
+  can look fine by the numbers and still be near-illegible once actually
+  played at the narrower marking viewport** --- a distinct failure shape
+  from the resize-mid-gesture and touch-capture checks above (those were
+  about correctness under a size change; this is about legibility at a
+  size that was never wrong, just small). Crit 5's charge meter (40x10 in
+  an 800x600 virtual space) read as marginal even on desktop, since the
+  canvas itself caps at `max-width: 40rem` (640px) regardless of viewport
+  width, and became a barely-visible ~17x4px sliver at the 390px mobile
+  marking viewport --- undermining the only visual readout for the "judge
+  the hold" mechanic on one of the two required marking viewports. Found
+  by actually playing (charging a real jump, screenshotting) rather than
+  by reading the `40, 10` constants, which read as plausible on paper.
+  Fixed by roughly doubling both dimensions and thickening the border.
+  Worth deliberately screenshotting any small interactive readout
+  (meter, timer, counter) at the mobile marking viewport specifically, not
+  just checking it renders without error --- "renders" and "legible at
+  390px" are different claims, and only playing (not reading the source)
+  tends to surface the gap. This is also a clean example of the brief's
+  "one change you made came from playing rather than reading its code"
+  spec line for a game deliverable --- worth treating a genuine multi-round
+  playthrough (hold durations judged by eye from screenshots, not computed
+  from the known formula) as a standing deepen-phase task for any future
+  game brief, specifically hunting for a feel/legibility issue reading the
+  source wouldn't surface, rather than treating that spec line as
+  automatically satisfied by writing tests or by a synthetic input scan.
+- **Two per-score scaling formulas that each look reasonable in isolation
+  can combine into an impossible constraint neither one violates alone.**
+  Crit 5's stone-narrowing (`stoneWidth`, floor 18) and gap-widening
+  (`maxDistance`, ceiling 270) formulas both capped sensibly on their own,
+  but at score >= 26 their combination could put a stone's near edge
+  (`distance - stoneWidth/2`) past 260, the longest jump the charge mechanic
+  can ever produce --- an unwinnable stone, not a hard one, about 0.56% of
+  hops in that range. Found by working through the two formulas' bounds
+  together (not by playing --- reaching score 26 organically is already a
+  feat), then confirmed with a throwaway brute-force script
+  (`node --experimental-strip-types -e`, 2M random rolls, before and after
+  the fix) rather than trusting the algebra alone. Fixed by giving the gap
+  generator the caller's own max-reachable-distance constant and clamping
+  the generated range to it, plus a regression test sweeping every score
+  0--60. General lesson: whenever two formulas both scale with the same
+  driving variable (here, score) and one's output feeds a bound the other
+  has to stay inside, check the combination across the whole range that
+  variable can reach --- each formula's own local cap being sane doesn't
+  mean their combination is, and this is exactly the kind of thing neither
+  `tsc`/build/vitest nor a short manual playthrough reliably catches, only
+  a brute-force sweep across the shared variable's full range does.
