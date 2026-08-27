@@ -876,3 +876,30 @@ specific resilience scenarios.
   deepen-phase check already found rather than made by default, whenever a
   future brief offers an optional harder variant on top of a working
   minimum.
+- **The "enumerate every event that ends a gesture" lesson (crit 4,
+  pointercancel) extends past pointer events to window-level focus/
+  visibility events, and a codebase can go several deepen runs without
+  ever having that specific question asked of it.** Far Bank's charge
+  gesture (hold to charge, release to jump) reset on `keyup`/`pointerup`/
+  `pointercancel` but had no `blur` or `visibilitychange` handling at all.
+  Losing window focus mid-hold --- alt-tab, switching tabs, clicking
+  another app --- meant the matching keyup/pointerup could go missing
+  entirely (many browsers don't deliver it to a backgrounded page once the
+  key/button is released elsewhere), leaving `phase` stuck at `"charging"`
+  forever: the meter frozen full, and every fresh press silently swallowed
+  since `press()` only acts from `phase === "ready"` --- no recovery short
+  of a reload. Confirmed live with `agent-browser eval`: dispatched a real
+  `keydown`, waited past the charge cap, screenshotted the frozen meter,
+  dispatched a second `keydown` and showed nothing happened. Fixed with a
+  `cancelCharge()` method (charging -> ready, no scoring, no jump played
+  out --- the player didn't choose that hold) wired to both `window`'s
+  `blur` and `document`'s `visibilitychange`/`hidden`, verified both paths
+  live the same way. Found on the fourth run on this deliverable, after
+  three prior runs (including one that explicitly declared the deepen list
+  dry) had all reasoned about pointer/keyboard completeness without ever
+  asking this specific question of this specific gesture --- confirms the
+  crit-4 lesson to "ask a genuinely new question, not re-verify the
+  existing checklist" generalises across deliverables, not just within
+  one. Worth checking any future hold-to-act mechanic (charge, drag, long
+  -press) for `blur`/`visibilitychange` handling from the first draft, not
+  just the pointer-event set already covered by `pointercancel`.
