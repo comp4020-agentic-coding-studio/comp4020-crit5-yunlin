@@ -903,3 +903,35 @@ specific resilience scenarios.
   one. Worth checking any future hold-to-act mechanic (charge, drag, long
   -press) for `blur`/`visibilitychange` handling from the first draft, not
   just the pointer-event set already covered by `pointercancel`.
+- **Not every event-completeness question the "enumerate every event that
+  ends a gesture" lesson raises turns out to be a real gap --- and the
+  architecture that closes it can be "release listeners were already
+  window-scoped, not element-scoped" rather than a new handler.** A fifth
+  run on Far Bank tested the specific follow-up the fourth run's hand-off
+  flagged: a pointer leaving the canvas mid-charge (`pointerleave`)
+  without leaving the window. Live-checked with `agent-browser eval`:
+  dispatched `pointerdown` on the canvas, then `pointermove`/`pointerleave`
+  to coordinates outside the canvas but inside the window --- the charge
+  meter kept filling correctly, because the release listeners
+  (`pointerup`/`pointercancel`) were already attached to `window`, not the
+  canvas element, so an element-bounds `pointerleave` was never wired to
+  cancel anything. Confirmed the release path still worked by dispatching
+  `pointerup` on `document` (not the canvas) at off-canvas coordinates and
+  watching the hold resolve normally. Worth recording as a clean result
+  alongside the CDP freeze/thaw and node-GC clean checks logged for crit
+  4: the "enumerate every event" discipline sometimes confirms the
+  existing design is already correct rather than finding a new hole, and
+  that's a genuine check discharged, not wasted effort --- the tell for
+  when it's safe to stop looking down this specific angle is a clean
+  result on the exact scenario a prior hand-off named as unverified,
+  not just "nothing obviously wrong on a fresh read."
+- Same run also re-ran the resize-mid-gesture check crit 4's drag-strum
+  established (MEMORY.md above) against Far Bank's charge/release hold for
+  the first time: resized the live session from 1280x720 to the 390x844
+  mobile viewport while a charge was active, then released. Clean --- the
+  game's virtual 800x600 coordinate space plus `ctx.setTransform` scaling
+  means canvas pixel size never enters the charge-timing or hit-testing
+  logic, so nothing to desync. Worth porting this specific check to any
+  future canvas-based widget in this template family the first time a
+  hold/drag gesture is added, rather than waiting for a resize bug to
+  motivate it.
