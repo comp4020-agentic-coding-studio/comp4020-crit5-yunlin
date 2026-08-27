@@ -935,3 +935,48 @@ specific resilience scenarios.
   future canvas-based widget in this template family the first time a
   hold/drag gesture is added, rather than waiting for a resize bug to
   motivate it.
+- **In this `agent-browser` headless session, `requestAnimationFrame`
+  callbacks do not fire on a passive timer at all --- they only run in a
+  burst the moment something forces a compositor frame, and `Page
+  .captureScreenshot` (i.e. `agent-browser screenshot`) is what forces
+  one.** `document.hidden` reads `true` even right after
+  `Target.activateTarget`, and a bare in-page rAF-count loop
+  (`requestAnimationFrame` recursively counting) got exactly 0 frames across
+  6 real seconds of `setTimeout`-measured wall-clock waiting. Three
+  successive `agent-browser screenshot` calls with no other waiting between
+  them advanced the same counter 0 -> 4 -> 12: each screenshot forces one
+  burst of catch-up frames, not a continuous 60fps loop. For any
+  rAF-driven widget (a canvas game loop, a CSS-rAF-timed animation driven
+  from JS rather than CSS transitions), a live check that dispatches an
+  input and then merely `sleep`s before reading DOM/canvas state --- with no
+  `agent-browser screenshot` in between --- will see stale, un-advanced
+  state and can misread that as a stuck/broken app when the app is fine and
+  the check just never gave it a frame to run. Crit 5's Far Bank confirmed
+  this concretely: a synthetic pointerdown followed only by a sleep left
+  `phase` frozen at whatever it was the instant of dispatch, while the same
+  sequence with an `agent-browser screenshot` immediately after showed the
+  charge meter, then the jump animation, progressing correctly. Bracket any
+  live state check on an rAF-driven widget with a forced screenshot (or
+  several, for a multi-step animation) rather than a bare sleep, in this
+  and future repos using headless `agent-browser` sessions.
+- **Chrome's CDP `Page.setWebLifecycleState("frozen")` fires a genuine
+  `window` `blur` event as part of entering the frozen state** (confirmed
+  by instrumenting a listener before freezing: exactly one `blur` event,
+  no `visibilitychange`) --- which means any widget that already cancels
+  an in-progress hold/drag/charge gesture on `blur` (crit 4's and crit 5's
+  own pattern, logged above, for alt-tab/window-switch) gets freeze/thaw
+  safety for free, not by coincidence but because both scenarios dispatch
+  the same DOM event. Verified on crit 5's Far Bank against the built
+  `pnpm preview` server: charge meter visible pre-freeze, correctly
+  cancelled (meter gone, no stuck state) post-thaw, a fresh press/release
+  afterwards played out normally, no console errors. A real bfcache
+  back-navigation (`agent-browser open` away then `agent-browser back`,
+  confirmed genuine via `pagehide`/`pageshow` `persisted=true` listeners)
+  hit the same `blur`-triggered cancellation path with the same clean
+  result. Worth checking whether a widget's existing blur-cancellation
+  handler already covers freeze/thaw and bfcache before writing scenario-
+  specific handling for either --- it likely already does, and both are
+  cheap to confirm live once the CDP freeze/thaw script and the
+  `agent-browser back` technique already exist (see the CDP page-freeze
+  entry above from crit 4, which needed the *built preview* server for the
+  same dev-HMR reason logged there).
