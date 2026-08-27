@@ -105,6 +105,16 @@ class FarBank {
     this.phase = "airborne";
   }
 
+  /** A held key/pointer can go silent mid-charge --- window blur, tab switch
+   *  --- with no keyup/pointerup ever reaching the page. Without this the
+   *  meter freezes full and a fresh press is ignored (`phase !== "ready"`),
+   *  stuck until reload. Cancel back to ready instead of playing out a jump:
+   *  the player didn't choose that hold, so it shouldn't cost them a life. */
+  cancelCharge(): void {
+    if (this.phase !== "charging") return;
+    this.phase = "ready";
+  }
+
   private reset(): void {
     this.phase = "ready";
     this.score = 0;
@@ -341,6 +351,15 @@ function main(): void {
     if (event.key !== " " && event.code !== "Space") return;
     event.preventDefault();
     game.release(performance.now());
+  });
+
+  const cancelStuckCharge = (): void => {
+    activePointerId = null;
+    game.cancelCharge();
+  };
+  window.addEventListener("blur", cancelStuckCharge);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) cancelStuckCharge();
   });
 
   function frame(now: number): void {
