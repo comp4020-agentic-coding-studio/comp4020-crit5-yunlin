@@ -1057,3 +1057,31 @@ specific resilience scenarios.
   check on any future widget with a phase-gated input handler, even when
   the reentrancy argument seems airtight from reading the code, since it's
   a cheap confirmation once the technique exists.
+- **A "does the hit-test boundary match the rendered shape" question is
+  often answerable by tracing which numbers feed both, before reaching for
+  a live check --- and when it's genuinely unclear from the trace alone, a
+  small standalone HTML/canvas file that copies just the relevant draw
+  calls (not the real page, no game-state setup needed) can render the
+  exact boundary frame directly.** Far Bank's `resolveJump` (rule) and
+  `drawStone`/`drawPlayer` (rendering) turned out to consume the identical
+  `gap.distance`/`gap.stoneWidth` values --- working through
+  `worldToScreen` by hand showed the on-screen offset between player and
+  target stone at the landing instant reduces to exactly
+  `gap.distance - jumpDistance`, the same quantity `resolveJump` bounds
+  against. Confirmed with a throwaway `/tmp` HTML file reproducing only the
+  two draw calls (not committed, deleted after) at the narrowing floor
+  (`stoneWidth` = 18): a landing at the exact rule boundary does look
+  borderline there (the player's sprite is wider than the stone), and a
+  landing 1 world-unit worse (rule: water) was visually indistinguishable
+  from it at that scale --- both correct and expected, since world units
+  map 1:1 to canvas pixels and the game never actually holds on that one
+  frame long enough for a player to eyeball it (it immediately resolves to
+  an unambiguous settle-and-continue or splash-and-end). A wider early-game
+  stone at its own exact boundary read clearly "on the stone" for contrast,
+  confirming the borderline look scales with difficulty as intended, not a
+  rule/render drift. General lesson: before assuming two independent-
+  looking draw/logic paths might have quietly drifted apart, trace whether
+  they actually share the same source numbers first --- if they do, no live
+  check can find a divergence that structurally can't exist, and a
+  throwaway standalone renderer (cheaper than driving the real game to a
+  hard-to-reach state) is enough to confirm what the trace predicts.
