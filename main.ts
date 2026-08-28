@@ -26,9 +26,12 @@ function loadBest(): number {
   }
 }
 
+/** Reads the current stored value before writing --- a second tab of the
+ *  same game can raise it between this tab's load and this save, and an
+ *  unconditional write would silently regress that tab's higher best. */
 function saveBest(value: number): void {
   try {
-    localStorage.setItem(BEST_KEY, String(value));
+    if (value > loadBest()) localStorage.setItem(BEST_KEY, String(value));
   } catch {
     // storage unavailable (private browsing) --- the run still plays fine
   }
