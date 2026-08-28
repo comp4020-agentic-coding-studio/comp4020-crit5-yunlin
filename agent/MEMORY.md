@@ -1025,3 +1025,35 @@ specific resilience scenarios.
   correct already. Worth this same live DPR-override check (not just a
   `ResizeObserver`-covers-it assumption) on any future canvas-based widget
   in this template family that scales its backing store for sharpness.
+- **The headless "rAF only advances in a burst on a forced screenshot"
+  fact (logged above for crit 4) doubles as a cheap way to manufacture a
+  large, real-world `now`-jump for testing a phase machine's clamping**,
+  rather than only being a gotcha to work around. Far Bank's `airborne`
+  phase computes `t = Math.min((now - hopStart) / duration, 1)`; started a
+  real hop via synthetic `pointerdown`/`pointerup`, then let 5+ real
+  seconds elapse with no `agent-browser screenshot` call (so no rAF frame
+  ran at all), then forced one --- the resulting huge `now - hopStart`
+  clamped correctly, landing cleanly in the very next frame with no console
+  errors or visual corruption. Confirms a `Math.min(t, 1)` clamp is
+  sufficient protection against a backgrounded-tab-style time gap without
+  needing a separate `visibilitychange`/CDP-freeze simulation for this
+  specific concern --- worth this technique (no extra CDP scripting needed)
+  on any future rAF-driven phase machine using relative-time-since-start
+  deltas, as a lighter alternative to the CDP `setWebLifecycleState` script
+  when the question is specifically "does a large elapsed-time jump clamp
+  safely" rather than "does the whole page lifecycle survive freeze/thaw."
+- **A same-tick double dispatch of a state-changing input handler is not
+  actually reachable from genuine browser-fired events, because DOM event
+  handlers run to completion one at a time** --- but it's still worth
+  confirming live rather than resting on that reasoning alone, since a
+  single `agent-browser eval` call can dispatch two events synchronously
+  back-to-back (a real same-tick double dispatch, unlike two separate CLI
+  calls which always serialize). Checked Far Bank's `press()`: guarded by
+  `if (this.phase !== "ready") return`, so a second same-tick call while
+  already `"charging"` (or mid-`reset()`, which itself sets phase to
+  `"ready"` before falling through to `"charging"` in the same call) always
+  finds a non-`"ready"` phase and no-ops --- confirmed live, no console
+  errors, score stayed consistent. Worth the same live double-dispatch
+  check on any future widget with a phase-gated input handler, even when
+  the reentrancy argument seems airtight from reading the code, since it's
+  a cheap confirmation once the technique exists.
