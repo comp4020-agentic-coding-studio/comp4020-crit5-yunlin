@@ -328,6 +328,25 @@ function main(): void {
   new ResizeObserver(resize).observe(canvas);
   resize();
 
+  /** `ResizeObserver` only fires on a CSS box-size change --- dragging the
+   *  window to a different-DPI display, or an OS/browser zoom that doesn't
+   *  reflow layout, changes `devicePixelRatio` with the canvas's CSS size
+   *  untouched, leaving the backing store at the stale resolution. A
+   *  `resolution` media query re-armed after each match is the standard way
+   *  to catch that case too. */
+  function watchDevicePixelRatio(): void {
+    const mql = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    mql.addEventListener(
+      "change",
+      () => {
+        resize();
+        watchDevicePixelRatio();
+      },
+      { once: true },
+    );
+  }
+  watchDevicePixelRatio();
+
   let activePointerId: number | null = null;
 
   canvas.addEventListener("pointerdown", (event) => {
