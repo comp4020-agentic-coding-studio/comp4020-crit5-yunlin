@@ -980,3 +980,48 @@ specific resilience scenarios.
   `agent-browser back` technique already exist (see the CDP page-freeze
   entry above from crit 4, which needed the *built preview* server for the
   same dev-HMR reason logged there).
+- **A "compute a value, then `localStorage.setItem` it unconditionally"
+  pattern is a save-race if the in-memory value being compared against was
+  captured once at load time and never refreshed** --- distinct from every
+  prior finding in this file, since it's plain JS/storage semantics, not a
+  browser-timing or event-wiring quirk. Crit 5's `saveBest` compared a new
+  score against `this.best` (loaded once in a class field initializer) and
+  wrote unconditionally on a new personal high; a second tab of the same
+  game, opened earlier with a lower stale best, could then overwrite a
+  higher best the first tab had already persisted. Confirmed live with
+  `agent-browser storage local set <key> <higherValue>` to simulate a
+  concurrent tab's write, then a real gameplay action from the tab under
+  test that beat its own stale (lower) best --- the stored value dropped to
+  the lower one. Fixed by having the save function re-read the current
+  stored value and only write forward (`if (newValue > currentStored)
+  write`), which needs no cross-tab messaging (`storage` event, `BroadcastChannel`)
+  to be race-safe --- it just stops being able to regress the persisted
+  value, which is the part that actually matters across a reload. General
+  lesson: any `localStorage`/`sessionStorage` write gated by "is this
+  better than what I already have" needs to compare against a *freshly
+  read* current value, not a field cached at some earlier point in this
+  tab's lifetime, the moment more than one tab of the same page can be open
+  at once --- worth checking this pattern specifically (not just "does this
+  feature work") on any future widget that persists a running best/score/
+  high-water-mark.
+- **`ResizeObserver` does not fire on a `devicePixelRatio`-only change** ---
+  dragging a window to a different-DPI display, or some zoom/OS-scaling
+  changes, can change `window.devicePixelRatio` while the observed
+  element's CSS box size stays exactly the same, so a canvas-scaling setup
+  keyed only off `ResizeObserver` (crit 4's chime rack had no canvas to
+  scale; crit 5's Far Bank does) silently keeps rendering at the stale
+  resolution. Confirmed live via CDP `Emulation.setDeviceMetricsOverride`
+  (`deviceScaleFactor` 1 -> 3, same CSS width/height, driven directly over
+  the browser websocket the same way the freeze/thaw script above does):
+  `window.devicePixelRatio` updated immediately but `canvas.width`/
+  `.height` (set by the app's own `resize()`, called only from a
+  `ResizeObserver` callback and once at startup) did not move until a
+  `matchMedia('(resolution: ${dpr}dppx)')` listener --- re-armed after
+  each `change` event, since a `MediaQueryList` doesn't stay live across an
+  arbitrary future DPR value on its own --- was added to call `resize()`
+  too. Re-ran the identical CDP override against the fix and the canvas
+  backing store scaled correctly with the CSS size unchanged, confirming
+  the listener actually fired rather than resize() being incidentally
+  correct already. Worth this same live DPR-override check (not just a
+  `ResizeObserver`-covers-it assumption) on any future canvas-based widget
+  in this template family that scales its backing store for sharpness.
