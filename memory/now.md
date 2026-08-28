@@ -1,56 +1,54 @@
 # now
 
-## State (this run, 111h to cutoff)
+## State (this run, 100h to cutoff)
 
-Eighth run on this deliverable, still a deepen run (prompt gave hours only,
-no "last run" language). Re-fetched the brief from the course source ---
-unchanged. `git status` clean, `pnpm check` and `pnpm check:audit` both
-green on arrival (28/28 tests, a11y+perf 100/100), so no regressions from
-the seventh run's localStorage-race/DPR fixes. No code changes this run ---
-both angles the seventh run flagged as genuinely untried came back clean,
-closing them out rather than finding new bugs.
+Ninth run on this deliverable, still a deepen run (prompt gave hours only, no
+"last run" language). Re-fetched the brief from the course source ---
+unchanged. `git status` clean on arrival, `pnpm check` green (28/28 tests) at
+both start and end of this run. No code changes: the eighth run's speculative
+candidate turned out to be a non-bug once actually checked, closed clean
+rather than fixed.
 
 ## Done this run
 
-- **Large-`now`-jump during `airborne`, checked live, clean.** The seventh
-  run's open question was whether anything assumes `now` advances smoothly
-  frame-to-frame. Exploited the standing "rAF doesn't advance without a
-  forced screenshot" fact (MEMORY.md, crit 4) as the tool: dispatched a real
-  synthetic `pointerdown`/`pointerup` to start a hop, then let 5+ real
-  seconds elapse with **no** `agent-browser screenshot` call in between (so
-  no rAF frame ran), then forced one. `update()`'s `Math.min(t, 1)` clamps
-  handled the resulting huge `now - hopStart` correctly --- the game landed
-  cleanly on the far stone in the first catch-up frame with a consistent
-  score, no console errors, no visual corruption (screenshot confirmed).
-  This is a stronger, more concrete version of the abstract "is `now`
-  monotonic across sources" question than could be reasoned out from source
-  alone --- a genuine backgrounded-tab-style time gap, not just a differing
-  clock source.
-- **Same-tick double-press hazard, checked live, clean.** The seventh run's
-  other open question was whether two press-equivalent events landing in
-  the same task could double-fire `press()`. Dispatched two synchronous
-  `keydown` Space events back-to-back inside one `agent-browser eval` call
-  (a genuine same-tick double dispatch, unlike two separate CLI calls)
-  while already `"charging"`: the second call's `phase !== "ready"` guard
-  correctly no-op'd, score stayed consistent, no console errors. Read
-  through `press()`'s `gameover -> reset() -> charging` path too and
-  confirmed by inspection it has the same guard (`reset()` sets phase to
-  `"ready"`, so a same-tick second call would see `"charging"`, not
-  `"ready"`, and return) --- JS's non-reentrant, run-to-completion handler
-  model means this was never actually reachable from real browser-dispatched
-  events in the first place (there's also no `click` listener at all, so a
-  synthetic-click-based double-fire path the seventh run also flagged as a
-  possibility doesn't exist here), but worth confirming live rather than
-  resting on that reasoning alone.
-- Preview server (port 4340) and `agent-browser` session both shut down
-  cleanly afterward (`lsof` confirmed the port free).
+- **Closed the eighth run's speculative candidate: does `resolveJump`'s
+  hit-test boundary match `drawStone`'s rendered width?** Traced the
+  coordinate math by hand first: at the instant a hop resolves (`t>=1` in
+  `update()`), the target stone is drawn at world x
+  `hopFrom + gap.distance` and the player is always drawn at the fixed
+  screen x `PLAYER_X`; working through `worldToScreen`, the stone's screen
+  offset from the player at that instant reduces to exactly
+  `gap.distance - jumpDistance`. `resolveJump` accepts `jumpDistance` inside
+  `gap.distance +/- gap.stoneWidth/2` --- the *same* `gap.distance` and
+  `gap.stoneWidth` values `drawStone` uses for its rendered ellipse centre
+  and radius. There's no second copy of either number: the rule and the
+  render are provably the same arithmetic, not just probably.
+  Confirmed visually too, with a throwaway standalone HTML/canvas file (not
+  part of the repo, deleted after) reproducing exactly `drawStone`'s and
+  `drawPlayer`'s draw calls at three cases: stoneWidth=18 (the narrowing
+  floor) with a landing at the exact near edge (rule: STONE), the same
+  stoneWidth with a landing 1 world-unit short of that edge (rule: WATER),
+  and stoneWidth=74 (the starting width) at its own exact near edge (rule:
+  STONE). The two stoneWidth=18 frames were visually indistinguishable
+  (expected --- a 1-pixel difference on an 800-unit canvas, since world
+  units map 1:1 to internal canvas pixels), and the boundary STONE frame at
+  stoneWidth=18 does look borderline (the player's 24px-wide sprite nearly
+  covers the 18px-wide stone), while the same boundary case at the starting
+  stoneWidth=74 clearly reads as "on the stone" with visible margin. That
+  borderline look at the extreme is correctly proportional to the
+  difficulty ramp, not a rule/render mismatch --- and moot in practice
+  anyway, since the game never holds on that exact frame: it immediately
+  transitions to `settling` (safe, continues) or `splash` (unambiguous
+  rings + "in the water" text), so a player never actually has to eyeball
+  that one ambiguous instant to know the outcome. Genuinely closed, not
+  found-and-deferred: no fix needed.
 
 ## Not done yet (fine --- this isn't the last run)
 
 `PROCESS.md` still has template boilerplate; `reflections/crit-5.md`
 doesn't exist. Both correctly deferred to the final run. Citation list,
-unchanged from last hand-off plus nothing new to add (this run found no
-bugs, just closed two open questions):
+unchanged from the last hand-off (this run found no bugs, closed a
+question analytically + visually instead):
 
 - `2917cdc` --- charge meter enlarged after playing at the mobile viewport.
 - `b4ec821` --- Lighthouse audit port, fixed the contrast defect it found.
@@ -64,17 +62,18 @@ bugs, just closed two open questions):
 
 ## Single most important next action
 
-Both angles named as "genuinely untried" by the seventh run are now closed,
-clean. Before assuming the deepen list is dry again, a future run should
-find a fresh question rather than re-verifying either of these two. One
-candidate not yet tried: the `stone`/`water` outcome only checks
-`jumpDistance` against `gap.distance +/- stoneWidth/2` in world units ---
-worth checking whether `resolveJump`'s boundary (`>=`/`<=`, inclusive) ever
-produces a *visually* wrong verdict against the rendered stone ellipse,
-i.e. whether `drawStone`'s rendered width (`width/2` radius) actually
-matches the hit-test width used by `resolveJump`, since these are two
-independent uses of the same `stoneWidth` number and nothing currently
-cross-checks that a landing judged "stone" by the rules also visually looks
-like it lands on the drawn stone (or vice versa) at the extremes of the
-narrowing range (`stoneWidth` -> 18, its floor). Speculative, not yet
-checked either analytically or live.
+The deepen list reads genuinely dry now: eight runs have covered event-
+wiring completeness (pointercancel, blur/visibilitychange, per-pointer
+scoping, implicit touch capture, resize-mid-gesture), page-lifecycle
+edge cases (CDP freeze/thaw, bfcache, large now-jumps, same-tick double
+dispatch), a storage race, a DPR-resize gap, and now the rule-vs-render
+question, all closed clean or fixed. No new candidate is currently
+identified. A future run should genuinely look for a fresh angle (not
+re-verify anything above) before assuming there's nothing left --- past
+hand-offs in MEMORY.md that switched from "re-read the same subsystem" to
+"ask a different question of the same code" (e.g. the wind-throttle and
+setTimeout-race findings) are the model to follow if this list stays dry
+for another run or two. If truly nothing new turns up next time, treat
+that as the signal to move toward the finishing steps early per doctrine
+("if a fresh deepen-phase pass would have nothing new to check, that's the
+signal to finish early") rather than waiting out the clock.
