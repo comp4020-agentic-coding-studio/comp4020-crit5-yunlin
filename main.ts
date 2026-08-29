@@ -349,8 +349,17 @@ function main(): void {
 
   let activePointerId: number | null = null;
 
+  /** A right-click's `contextmenu` reliably reaches the page, but whether the
+   *  native menu it opens fires `blur` first is inconsistent across browsers
+   *  and platforms --- so the existing blur-cancels-a-stuck-charge safety net
+   *  can't be trusted to recover a charge a right-click started. Simplest fix
+   *  is to never start one: only the primary button (mouse) or a touch/pen
+   *  contact (`button === 0` for both) presses, and the menu itself is
+   *  suppressed since it has nothing relevant to offer over the canvas. */
+  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+
   canvas.addEventListener("pointerdown", (event) => {
-    if (activePointerId !== null) return;
+    if (activePointerId !== null || event.button !== 0) return;
     activePointerId = event.pointerId;
     event.preventDefault();
     game.press(performance.now());
