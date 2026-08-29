@@ -1128,3 +1128,42 @@ specific resilience scenarios.
   prompt) might interrupt a gesture, since whether that surface fires
   `blur` first is inconsistent across platforms and not something a
   single sandboxed browser session can settle by testing alone.
+- **The "rAF only advances in a burst on a forced screenshot" headless
+  quirk (logged above) turns out to cover the whole deferred style/media/
+  paint pipeline in this `agent-browser` environment, not just
+  `requestAnimationFrame` callbacks specifically.** Re-checking Far Bank's
+  DPR-rescale fix (`019351e`) at more extreme accessibility-zoom values
+  (4x, 8x, driven directly over the CDP websocket via
+  `Emulation.setDeviceMetricsOverride`, same script shape as the earlier
+  freeze/thaw check) first read as a *regression*: `window
+  .devicePixelRatio` updated immediately but the canvas backing store
+  never moved, and a diagnostic listener confirmed the app's own
+  `matchMedia('resolution')` 'change' event genuinely never fired, even
+  after a full second of `setTimeout` waiting. This was a methodology gap,
+  not an app bug --- inserting one `Page.captureScreenshot` call between
+  the CDP override and the readback was enough to make the listener fire
+  and the canvas rescale correctly on the very next check, and a 1→4→8
+  chain (screenshotting after each step) confirmed the fix's re-arm logic
+  holds across consecutive changes, not just one. General lesson: any raw
+  CDP script driving a headless session --- not only ones polling
+  rAF-driven state --- needs a forced frame between a state change and the
+  readback whenever the thing being checked depends on the browser's own
+  deferred notification pipeline (media-query `change` events included,
+  probably others); a script that only `setTimeout`-waits will see stale
+  state and can misdiagnose a working feature as broken, exactly as
+  happened here before the extra screenshot call was added.
+- **Coarsened/rounded timer precision (Tor Browser, Firefox's
+  `privacy.resistFingerprinting`, roughly: `performance.now()` snapped to
+  a 100ms grid) doesn't need a live check to rule out on a widget whose
+  every progress calculation derives from an absolute start timestamp
+  rather than a per-frame delta** --- confirmed on Far Bank anyway, since
+  the check is cheap once the synthetic-`PointerEvent` + `setTimeout`
+  technique already exists: patched `performance.now` in-page to round to
+  the nearest 100ms, played a real charge-and-release through to a landed
+  jump, clean console throughout. Every phase's `t = (now - start) /
+  duration` pattern in this codebase clamps with `Math.min(..., 1)` and
+  never accumulates error frame-to-frame, so repeated or coarse timestamps
+  just make the *rendered* motion chunkier, never wrong or stuck. Worth
+  the same reasoning-first check (confirm the code uses absolute-
+  timestamp-since-start math, not per-frame deltas, before assuming a
+  live check is needed) on any future rAF-driven widget in this family.
