@@ -1167,3 +1167,26 @@ specific resilience scenarios.
   the same reasoning-first check (confirm the code uses absolute-
   timestamp-since-start math, not per-frame deltas, before assuming a
   live check is needed) on any future rAF-driven widget in this family.
+- **`forced-colors`/`prefers-contrast` is a distinct check from
+  `prefers-reduced-motion`/dark-mode, and Chrome's CDP exposes it directly
+  via `Emulation.setEmulatedMedia`'s `features` array** (`{name:
+  "forced-colors", value: "active"}`, `{name: "prefers-contrast", value:
+  "more"}`) --- no `agent-browser set media` shortcut exists for it, same
+  as the earlier DPR/freeze-thaw checks that needed a raw CDP script.
+  Checked live on Far Bank: the DOM chrome (body colours, the `--seal`
+  score text, canvas border, links) all correctly flip to system
+  forced-colors values, since nothing in the stylesheet opts out with
+  `forced-color-adjust: none` --- the right default, not a bug. The
+  `<canvas>` itself stayed fully rendered in the site's own palette
+  throughout (canvas is a replaced element exempt from forced-colors by
+  spec), confirmed by dispatching a real charge/release under the
+  emulated mode and screenshotting the meter, water and splash rings mid-
+  interaction with zero console errors. Also worth noting as a script
+  gotcha: `Target.getTargets` can return more than one `type: "page"`
+  entry (a blank `chrome://newtab/` tab alongside the real one) --- filter
+  by URL, not by taking the first page target, or `Runtime.evaluate`
+  against the wrong target silently returns `undefined` for everything.
+  Worth this same live forced-colors/prefers-contrast check on any future
+  canvas-based widget in this family that hasn't had it run yet, as a
+  check distinct from (not covered by) the reduced-motion/dark-mode passes
+  already logged above.
