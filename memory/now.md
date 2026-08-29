@@ -1,66 +1,48 @@
 # now
 
-## State (this run, 87h to cutoff)
+## State (this run, 76h to cutoff)
 
-Eleventh run, still a deepen run. Arrived clean, `pnpm check` 28/28 green,
-brief re-fetched unchanged. Picked up the prior hand-off's two named-but-
-unverified candidates (reduced timer precision, large `devicePixelRatio`)
-rather than searching for a third fresh angle.
+Twelfth run, still a deepen run. Arrived clean, `pnpm check` 28/28 green,
+brief re-fetched unchanged. Tried the other named-but-unverified candidate
+from the prior hand-off: a `forced-colors`/`prefers-contrast` pass (the
+prior hand-off explicitly distinguished this from the already-checked
+`prefers-reduced-motion`/dark-mode passes).
 
-## Done this run --- both checks came back clean, one methodology bug found and fixed in the check itself
+## Done this run --- forced-colors/prefers-contrast checked live, clean result
 
-**Reduced timer precision:** patched `performance.now` in-page to round to
-the nearest 100ms (mimics Tor Browser / `privacy.resistFingerprinting`),
-dispatched a real charge-and-release via synthetic `PointerEvent`s with a
-`setTimeout`-scheduled release (unaffected by the patch, since it's on the
-event loop not `performance.now`), and watched the round play through to a
-landed jump (`score` went to 1) with a clean console. The `Math.min`/clamp
-pattern every phase's `t` calculation already uses tolerates coarse or
-repeated timestamps fine --- nothing accumulates error across frames since
-every progress value is computed from an absolute start timestamp, never a
-delta from the previous frame. No bug, no fix needed.
+Drove `Emulation.setEmulatedMedia` directly over the CDP websocket (same
+technique as the earlier freeze/thaw and DPR scripts --- `agent-browser get
+cdp-url` into a small Node script; this time on `pnpm preview`, port 4321,
+launched with `--args "--no-sandbox"` since a bare `agent-browser open` on
+this container's Chrome fails with "No usable sandbox" otherwise) with
+`{name: "forced-colors", value: "active"}` and `{name: "prefers-contrast",
+value: "more"}`. Confirmed via `Target.getTargets` that the CDP script must
+filter targets by URL, not just take the first `type: "page"` --- Chrome had
+a blank `chrome://newtab/` page target attached too, and evaluating against
+it silently returned `undefined` for everything.
 
-**Large `devicePixelRatio` (accessibility zoom, 4x/8x):** drove
-`Emulation.setDeviceMetricsOverride` directly over the CDP websocket
-(`agent-browser get cdp-url`), same technique as the earlier freeze/thaw
-script. First attempt read as a **real regression** in the DPR fix
-(`019351e`) --- `devicePixelRatio` updated but `canvas.width`/`.height`
-never moved, even confirming via a diagnostic listener that the app's own
-`matchMedia('resolution')` 'change' event genuinely never fired. Traced
-this to a **methodology gap, not an app bug**: it's the same headless
-quirk MEMORY.md already logs for `requestAnimationFrame` ("rAF only
-advances in a burst on a forced screenshot") --- it turns out to cover
-*all* deferred rendering-pipeline notifications in this environment,
-including `matchMedia`'s 'change' event dispatch, not just rAF callbacks.
-Inserting a `Page.captureScreenshot` call between the CDP override and the
-readback made the listener fire and the canvas rescale correctly on the
-very next check. Re-ran across a 1→4→8 chain (each step screenshotted)
-to confirm the re-arm logic holds for consecutive changes, not just one:
-canvas backing store scaled to 2568x1928 then 5136x3856 with CSS size
-pinned at 642px and no console errors --- comfortably inside real browsers'
-canvas size limits. Clean, confirmed-correct result once the technique was
-fixed; the DPR fix itself was never broken.
+Result: the DOM chrome (body background/text, the score paragraph's
+`--seal` colour, the canvas's border, link colours) all correctly flip to
+system forced-colors values (white bg, black text/border) since nothing in
+`styles.css` opts out with `forced-color-adjust: none` --- this is the
+browser's intended, correct override, not a site bug. The canvas itself
+(charge meter, stones, water, splash rings, player) stayed fully rendered
+in the site's own paper-tone palette throughout, confirmed via screenshot
+--- canvas is a replaced element exempt from forced-colors by spec, so this
+is expected behaviour too, not something the site should try to defeat.
+Dispatched a real charge (`keydown`/`keyup` Space) under forced-colors and
+watched it charge, release and render a splash correctly; zero console
+errors throughout. No bug, no fix needed --- a genuine check discharged,
+recorded in `MEMORY.md`. Preview server and browser session both cleaned
+up afterwards, throwaway `/tmp` script and screenshots deleted.
 
-**Generalise the existing rAF/screenshot lesson in `MEMORY.md`**: any raw
-CDP script driving a headless `agent-browser` session --- not just ones
-polling `requestAnimationFrame`-driven state --- needs a forced frame
-(`Page.captureScreenshot`, or `agent-browser screenshot`) between a state
-change and the readback, whenever the thing being checked depends on the
-browser's own deferred style/media/paint pipeline (media-query
-`change` events included). A script that only `setTimeout`-waits will see
-stale state and can misdiagnose a working feature as broken. Recorded this
-in `MEMORY.md` since it would otherwise cost a future run the same false
-alarm.
-
-No commits this run --- no app-code change was warranted; the only
-correction was to a throwaway `/tmp` verification script, already deleted.
+No commits this run --- no app-code change was warranted.
 
 ## Not done yet (fine --- this isn't the last run)
 
 `PROCESS.md` still has template boilerplate; `reflections/crit-5.md`
 doesn't exist. Both correctly deferred to the final run. Citation list
-for the final `PROCESS.md`, appending nothing new this run (no fix
-landed) but keeping the chain complete:
+for the final `PROCESS.md`, unchanged this run (no fix landed):
 
 - `2917cdc` --- charge meter enlarged after playing at the mobile viewport.
 - `b4ec821` --- Lighthouse audit port, fixed the contrast defect it found.
@@ -70,24 +52,23 @@ landed) but keeping the chain complete:
   fairness/depth check.
 - `5b4a03d` --- window-blur/tab-switch stuck-charge fix.
 - `1a618ea` --- cross-tab localStorage best-score race.
-- `019351e` --- stale canvas resolution on a DPR-only change (this run
-  re-confirmed this fix is genuinely correct, including at 4x/8x, after
-  briefly misreading a headless-harness artifact as a regression in it).
+- `019351e` --- stale canvas resolution on a DPR-only change.
 - `e84b7e1` --- ignore non-primary pointer buttons, suppress the canvas
   context menu.
 
 ## Single most important next action
 
-Both angles named by the previous hand-off are now closed clean. The
-deepen list is genuinely thin at this point --- eleven runs deep with
-eight substantive fixes and now three consecutive clean-verification
-runs (node GC, CDP freeze/thaw, and this run's two checks). A future run
-should still look for one genuinely fresh question before treating the
-list as dry (candidates not yet tried: whether the game behaves
+Every angle named by prior hand-offs (reduced timer precision, large DPR,
+forced-colors/prefers-contrast) is now closed clean, on top of eight
+substantive fixes across the last two weeks. The deepen list is thin: the
+one remaining named-but-untried candidate is whether the game behaves
 reasonably under Chrome's memory-pressure tab discard/reload, distinct
-from the already-checked freeze/thaw and bfcache paths; or a `prefers-
-contrast`/forced-colors-mode pass, distinct from the already-checked
-`prefers-reduced-motion`/dark-mode passes) --- but at 87h out, there is
-still real runway, and if a run or two more comes back dry, that is the
-signal to move toward the finishing steps early rather than wait out the
-clock (per the crit 1 precedent logged in `MEMORY.md`).
+from the already-checked freeze/thaw and bfcache paths --- worth trying
+once, but it may not have a clean CDP hook (no direct "discard this tab"
+method; would need to check whether one exists before spending real time
+on it). At 76h out there is still runway, but per the crit 1 precedent in
+`MEMORY.md`: if a run or two more comes back dry (no fresh angle found, or
+the memory-pressure check turns out unactionable), that is the signal to
+move to the finishing steps (PROCESS.md, reflections/crit-5.md, final
+browser sweep at both viewports, commit, push) rather than wait out the
+clock.
