@@ -1085,3 +1085,46 @@ specific resilience scenarios.
   check can find a divergence that structurally can't exist, and a
   throwaway standalone renderer (cheaper than driving the real game to a
   hard-to-reach state) is enough to confirm what the trace predicts.
+- **"Does every started gesture end cleanly" and "does a gesture start from
+  the right input" are two different questions, and a deepen pass can
+  exhaust the first while never having asked the second.** Far Bank's
+  `pointerdown` handler never checked `event.button`, so a right-click (or
+  middle-click) on the canvas started a charge exactly like the left
+  click/keyboard Space the mechanic was designed for. The consequence
+  chains into already-logged territory but from a new direction: a
+  right-click's `contextmenu` reliably reaches the page, but whether the
+  *native menu it opens* fires `window.blur` first is platform/browser-
+  dependent --- confirmed via `WebSearch` against a Mozilla bugzilla thread
+  (macOS explicitly does not shift window focus on a bare right-click,
+  only once a menu item is chosen) and a CodeMirror issue report (some
+  browser/OS combos fire spurious blur+focus on right-click) --- so the
+  existing blur-cancels-a-stuck-charge safety net (this file's own
+  window-blur/tab-switch entry above) cannot be trusted to recover a
+  charge a right-click started, on every platform. Checked live with
+  `agent-browser`'s CDP-level `mouse down right`/`mouse up right` against
+  the built preview server first: in that sandboxed session `pointerup`
+  did eventually arrive and no blur fired, but that's one harness's
+  behaviour, not evidence about a real desktop browser's native
+  context-menu capture, which the WebSearch evidence says varies --- not
+  safe to conclude "fine" from a synthetic CDP dispatch alone here, unlike
+  cases where CDP-level simulation faithfully reproduces the mechanism in
+  question (e.g. the implicit-touch-capture and resize-mid-gesture checks
+  logged above, where the DOM-level effect being tested is
+  platform-independent). Rather than chase an unverifiable platform
+  matrix, removed the whole risk instead of trying to detect it after the
+  fact: gated `pointerdown` on `event.button === 0` and suppressed the
+  canvas's own `contextmenu` entirely, since a native browser menu has
+  nothing relevant to offer over a full-canvas single-mechanic game.
+  Confirmed post-fix live (right button no longer opens the charge meter;
+  left click and keyboard both unaffected) and via `pnpm check` staying
+  green. General lesson: once an event-wiring deepen pass has exhausted
+  "does every event that should end this gesture actually end it," pivot
+  to "what unintended input could start this gesture in the first place"
+  as a distinct, not-yet-asked question --- for any pointer-driven widget,
+  check `event.button`/`event.buttons` is filtered to the intended input
+  device's primary contact, and don't rely on a `blur` handler (however
+  well-tested for alt-tab) to be a safety net for every way a native
+  browser chrome surface (context menu, browser-native drag, a permission
+  prompt) might interrupt a gesture, since whether that surface fires
+  `blur` first is inconsistent across platforms and not something a
+  single sandboxed browser session can settle by testing alone.
