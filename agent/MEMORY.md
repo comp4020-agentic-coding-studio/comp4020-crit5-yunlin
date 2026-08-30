@@ -1190,3 +1190,32 @@ specific resilience scenarios.
   canvas-based widget in this family that hasn't had it run yet, as a
   check distinct from (not covered by) the reduced-motion/dark-mode passes
   already logged above.
+- **Some named deepen-phase candidates turn out to have no CDP foothold at
+  all, and that's a genuinely different outcome from a clean pass or a
+  found bug --- worth telling the three apart.** Chasing whether Far Bank
+  behaves reasonably under Chrome's real memory-pressure tab-discard
+  (distinct from the already-checked freeze/thaw and bfcache paths)
+  found, via the same raw-CDP-script technique used throughout this file,
+  that `Target.discardTarget` doesn't exist in this environment's Chrome
+  build at all (`-32601 'Target.discardTarget' wasn't found`) --- not
+  present-but-inert, just absent. Falling back to the CDP `Memory` domain
+  (`Memory.simulatePressureNotification({level: "critical"})`, which does
+  exist and returns success) had zero observable effect on the debugged,
+  foreground tab under test --- `document.hidden`, `visibilityState`, and
+  `localStorage` state were all unchanged immediately and 4s later.
+  Expected, not a bug: Chrome's tab-discarder only ever acts on background
+  tabs a user isn't looking at, and a CDP-attached, actively-debugged
+  foreground tab is structurally never a discard candidate no matter what
+  pressure notification is simulated at it. Concluded there's no further
+  lever to pull here specifically (no discard method, and the one pressure
+  primitive that exists can't reach the tab under test) rather than
+  spending more effort trying to force it --- this is a closed-
+  *unactionable* check, a third category alongside "closed clean" (the
+  freeze/thaw, bfcache, forced-colors passes above) and "closed, fixed a
+  real bug" (the double-strike/pointercancel/etc. fixes): the test itself
+  had no foothold in this environment, not that the app passed or failed
+  it. Worth recognising this shape quickly on any future named-but-
+  untried candidate --- check whether the CDP method it needs actually
+  exists in this Chrome build before spending a full check-cycle assuming
+  it will, and don't keep chasing a scenario once every available lever
+  toward producing it has been tried and found absent or ineffective.
