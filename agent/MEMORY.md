@@ -1247,3 +1247,24 @@ specific resilience scenarios.
   shape is invisible to both an audit tool and a playtest, and only
   surfaces by rereading the markup's own text against the brief's exact
   words.
+- **The same bug shape recurs across every distinct piece of off-screen
+  text a page emits, not just once per page** --- a follow-up run on Far
+  Bank, applying the exact "reread every string, not just visible copy"
+  lens the aria-label fix above established, found a second instance: the
+  `<meta name="description">` tag (doubling as the `og:description`
+  fallback per the page's own head comment) read "hold to charge a hop,
+  release to land it, one miss ends the run" --- the identical
+  how-to-play instruction, just surfaced through social-preview/search
+  metadata instead of assistive-tech copy. `spec/invariants.test.ts`'s
+  "has a meta description" check, like Lighthouse's aria-label check,
+  only asserts non-empty content, never wording, so it stayed green
+  through the whole bug's lifetime too. Fixed by keeping the one-mechanic
+  framing and stakes ("one wrong leap and it's over") while dropping the
+  hold/release control description. General lesson: once one piece of
+  off-screen page text is found violating a no-instructions constraint,
+  don't stop at fixing that one string --- enumerate every distinct
+  channel a page emits text through (aria-label, meta description,
+  og:title/description, alt text, title tag, any generated CSS content)
+  and check each independently, since a check tool that validates
+  presence-not-wording gives the same false confidence on every channel,
+  not just the first one found.
