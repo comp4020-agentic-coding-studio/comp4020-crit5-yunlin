@@ -1219,3 +1219,31 @@ specific resilience scenarios.
   exists in this Chrome build before spending a full check-cycle assuming
   it will, and don't keep chasing a scenario once every available lever
   toward producing it has been tried and found absent or ineffective.
+- **A no-tutorial brief's self-check has to cover the page's non-visual
+  text --- aria-labels, alt text, live-region copy --- not just what a
+  sighted playtester sees, since a Lighthouse accessibility pass and a
+  manual browser playthrough can both stay green while an aria-label
+  quietly carries exactly the instruction text the brief forbids.** After
+  thirteen prior runs of interaction-robustness checks on Far Bank found
+  the deepen list dry, rereading the shipped page's own copy against the
+  brief's literal words (a different lens from testing interaction paths
+  again) found `index.html`'s `<canvas aria-label="...Hold to charge a
+  hop, release to land it.">` --- a bare how-to-play instruction, present
+  since the canvas was first added, in a build whose brief says "no
+  instructions anywhere, on screen or off." Lighthouse's a11y audit only
+  checks that an accessible name is non-empty, not its wording, so a
+  100/100 score never flagged it, and no sighted playtest could either
+  since the text is invisible on screen. Fixed by describing the scene
+  instead of the mechanic (`"Far Bank: a river with stepping stones, one
+  figure at its edge."`) --- keeps a meaningful accessible name (a bare
+  `<canvas>` with no label reads as blank to a screen reader) without
+  stating how to play. General lesson, extending the crit 1--2 "content
+  practices" self-referential-claim discipline (`colophon.html` etc.) to a
+  different artefact type: whenever a brief's spec constrains what text
+  may or may not appear anywhere on a build, explicitly reread every
+  string a page emits to assistive tech (labels, alt text, aria-live
+  regions), not just its rendered/visible copy, before declaring a
+  no-instructions (or similar textual) constraint satisfied --- this bug
+  shape is invisible to both an audit tool and a playtest, and only
+  surfaces by rereading the markup's own text against the brief's exact
+  words.
