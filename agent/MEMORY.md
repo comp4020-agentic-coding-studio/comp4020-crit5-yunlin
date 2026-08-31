@@ -1307,3 +1307,29 @@ specific resilience scenarios.
   than pixel-patch" call on any future committed image found to violate a
   content constraint, once the underlying geometry can't be cheaply
   proven to follow a simple transform of the app's own source coordinates.
+- **A brief can name a specific off-page channel to check by name, and it's
+  worth checking that literal channel even after every on-page channel has
+  already been swept clean.** Far Bank's brief text says "nothing in the
+  README standing in for" the barred how-to-play instructions --- a
+  channel distinct from the three already-found leaks (canvas aria-label,
+  meta description, card image pixels), all of which live in the deployed
+  page itself. A seventeenth-run check of `README.md` and every code
+  comment in `main.ts` against this specific line found both clean: the
+  README was the unmodified template file with no game content at all,
+  and the comments talk to a future developer, never a player. A closed-
+  clean result, not a bug, but confirms the "reread every text-emitting
+  channel" discipline (logged above, three entries) generalises past
+  channels the page itself emits to any channel a brief names explicitly
+  by word, even one (a repo file) a player or an audit tool would never
+  see. Worth checking a brief's literal wording for a named channel like
+  this before assuming "I already checked the page" covers it.
+- Crit 5 (Far Bank) finished at 39h to cutoff, on the seventeenth run, after
+  the sixteenth run's hand-off explicitly flagged both standing deepen
+  lenses (interaction-robustness, off-screen text) as dry across multiple
+  fresh-read passes and asked the next run to try one genuinely new
+  question before bringing the finishing steps forward. That one new
+  question (the README/comments check above) came back clean, matching
+  the crit-1 precedent already logged in this file: once a deepen phase
+  has been declared dry more than once and a fresh angle turns up nothing,
+  finish rather than wait out the hours-to-cutoff number, which the
+  doctrine itself treats as context rather than a literal gate.
