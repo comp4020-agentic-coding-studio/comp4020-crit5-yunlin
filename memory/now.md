@@ -1,52 +1,56 @@
 # now
 
-## State (this run, 52h to cutoff)
+## State (this run, 45h to cutoff)
 
-Fifteenth run, still a deepen run (prompt gave hours-to-cutoff but did not
+Sixteenth run, still a deepen run (prompt gave hours-to-cutoff but did not
 call this the last one). Arrived clean, `pnpm check` 28/28 green, brief
-re-fetched unchanged (verbatim body cached in prior hand-offs). Prior
-run's instruction was explicit: try the self-referential-claim lens once
-more --- reread `index.html`/`styles.css`/`PROCESS.md`/`README.md`'s
-literal copy against every spec line in the brief, not the game code
-again --- and this run found one more.
+re-fetched unchanged. Prior run's single most important next action named
+exactly one untried thing: whether `public/card.png`'s own pixels (not
+its alt text --- `og:image` has no alt in HTML) bake in any how-to-play
+text the earlier aria-label/meta-description fixes wouldn't have caught.
+They did.
 
-## Done this run --- fixed a second how-to-play leak, this time in the meta description
+## Done this run --- found and fixed a third how-to-play leak, this time baked into image pixels
 
-`index.html`'s `<meta name="description">` read "A one-mechanic
-river-crossing game: hold to charge a hop, release to land it, one miss
-ends the run." --- the same how-to-play instruction shape as the
-aria-label bug fixed last run (`976cf89`), just surfaced through a
-different piece of off-screen text: social-preview/search-engine
-metadata rather than assistive-tech copy. The head comment confirms this
-tag doubles as the `og:description` fallback (no separate `og:description`
-tag is set), so it's real page text a link-preview card or search result
-would show, even though a player never sees it while actually playing.
+`public/card.png`'s italic subtitle read "hold to charge a hop, release
+to land it" --- the identical instruction text already dropped from the
+canvas aria-label (`976cf89`) and the meta description (`2584f7e`), just
+carried in the image's rendered pixels instead of markup text. Neither
+Lighthouse nor a page-text grep can see text baked into a PNG, so this
+sat undetected since the card was first drawn (`50248de`, week-1 of this
+build). Read the whole image at full res with the `Read` tool (not just
+`identify`/pixel-sampling) to actually see the subtitle rendered on the
+mountain silhouette.
 
-Fixed by rewording to keep the one-mechanic framing and stakes without
-stating the hold/release control scheme: "A one-mechanic river-crossing
-game: one wrong leap and it's over." Confirmed `pnpm check` stays 28/28
-green (the `spec/invariants.test.ts` "has a meta description" check
-just asserts non-empty content, same as Lighthouse's aria-label check
-last run asserting non-empty name --- neither audits wording). Committed
-as `2584f7e`.
-
-Checked the rest of the page's off-screen/on-screen text while at it,
-found nothing else to fix: `styles.css` has no `content:` generated text
-anywhere; `main.ts`'s only `textContent` write is the score readout
-("Score N" / "In the water --- score N, best N"), which states outcome
-and score, not mechanic; the "Home" nav link, page title, and canvas
-aria-label (already fixed last run) are all clean; `spec/README.md`
-(marker-facing, not player-facing) and `README.md` (template's own
-boilerplate, not this deliverable's content) are out of scope for this
-check by construction, since a stranger playing the deployed site never
-sees either.
+Tried to patch just the offending text region in place first, sampling
+pixel colours (`convert ... crop ... txt:-`) to find the paper/mountain
+boundary under the text band --- abandoned after the boundary turned out
+not to follow a clean affine scale of `main.ts`'s virtual-canvas ridge
+polygon (checked the maths, it diverges partway across the band), which
+would have meant patching by eyeballed guesswork rather than a
+reconstructable rule. Redrew the whole card from scratch as a fresh SVG
+instead, in the same palette (verified the ridge/water rgba blends match
+`main.ts`'s exactly by computing the alpha-composite over paper by hand:
+`rgba(107,102,92,0.35)` over `#f3efe4` --- ink-soft at 35% --- comes out
+`#c3bfb4`, the same grey I'd sampled from the original card), same rough
+composition (title, ridge, water, two stones, charge meter, floating
+player), new subtitle reworded to stakes only: "one wrong leap and it's
+over" --- the exact same phrase already used in the meta description fix,
+so the three channels now agree word-for-word rather than just avoiding
+instructions independently. Rendered via `convert card.svg card.png`:
+ImageMagick 6.9's `svg:` delegate is configured to shell out to
+`rsvg-convert`, which isn't installed in this environment, but it silently
+falls back to its own built-in MSVG/pangocairo renderer and produced a
+clean result anyway --- confirmed by reading the rendered PNG before
+trusting it, not just checking the `convert` exit code. New file is 64KB,
+well under both the 5MB harness cap and the old file's 33KB (roughly
+double, still trivial). `pnpm check` stays 28/28 green (nothing in CI
+touches this asset, per this repo's own `CLAUDE.md`). Committed as
+`71b4cb0`.
 
 ## Housekeeping
 
-None needed this run --- last run's memory-path mistake (writing to the
-wrong outer `now.md`) was already caught and fixed before this run
-started; this repo's `memory/now.md` remains the one file both `CLAUDE.md`
-and the doctrine actually read and this run is writing to.
+None needed.
 
 ## Not done yet (fine --- this isn't the last run)
 
@@ -65,28 +69,34 @@ for the final `PROCESS.md`, updated with this run's fix:
 - `019351e` --- stale canvas resolution on a DPR-only change.
 - `e84b7e1` --- ignore non-primary pointer buttons, suppress the canvas
   context menu.
-- `976cf89` --- dropped how-to-play text from the canvas aria-label.
-- `2584f7e` --- dropped how-to-play text from the meta description (this
-  run): the same spec-conformance category as `976cf89`, worth presenting
-  together in `PROCESS.md` as one moment ("reread every string the page
-  emits, not just what's rendered, twice") rather than two separate ones.
+- `976cf89`, `2584f7e`, `71b4cb0` --- the same how-to-play-leak bug shape
+  found in three independent channels (canvas aria-label, meta
+  description, link-preview image pixels) across three runs --- worth
+  presenting as one moment in `PROCESS.md` ("reread every string/pixel the
+  page emits, not just what a player sees while playing, across every
+  channel it emits through"), not three separate ones. This is also a
+  clean instance of the brief's "explain how the work was directed,
+  grounded, and corrected" line, since each fix was caught by a deliberate
+  self-check pass, not by any automated tool (Lighthouse and
+  `spec/invariants.test.ts` both only assert non-empty content on the
+  affected fields/assets, never wording or pixel content).
 
 ## Single most important next action
 
-The self-referential-claim/off-screen-text lens has now found two
-instances of the same bug shape (aria-label, meta description) and come
-back clean on a third full pass of the remaining page text. That's a
-reasonable signal this specific lens is close to dry for this build, but
-worth one more targeted look before assuming so: the `public/card.png`
-link-preview image itself hasn't been checked for whether its own visual
-content (not alt text --- `og:image` has no alt in HTML) depicts or
-captions any how-to-play text baked into the image pixels, which none of
-the text-scanning checks above would catch. Also worth reconsidering
-whether the interaction-robustness lens (event-wiring, timing, storage
-races --- exhaustively covered across runs 1--14 per `MEMORY.md`) has any
-angle left, or whether it's time to treat both lenses as genuinely dry
-and let the next run's arrival state (hours-to-cutoff, whether the prompt
-calls it last) decide when to move to finishing steps rather than
-manufacturing a further check. Still wait for the prompt to call a run
-last, or for dryness to be unambiguous across both lenses, before
-bringing finishing steps forward on its own arithmetic.
+Checked every text-emitting channel this page has (title, meta
+description, og:image pixels, canvas aria-label, nav link, h1, score
+readout, favicon --- which is pure SVG shapes, no text) and every one is
+now either clean by construction or already fixed. The self-referential/
+off-screen-text lens (three runs' worth: `976cf89`, `2584f7e`, `71b4cb0`)
+is genuinely dry now, not just quiet for one pass --- there is no
+remaining page-emitted string or image left unchecked against the
+no-instructions constraint. Combined with the interaction-robustness lens
+already reading exhausted across runs 1--14 (MEMORY.md's long list), the
+next run should treat both lenses as dry unless it can name a genuinely
+new question neither has asked yet (per the crit-4 lesson: switch
+questions, don't re-verify the existing checklist) --- and if it can't,
+that's the signal `now.md` should act on to bring the finishing steps
+forward, still waiting for either the prompt to call a run last or for
+this dryness to hold across one more run's fresh read, per the standing
+discipline of not trusting a single pass's "nothing here" as the final
+word.
