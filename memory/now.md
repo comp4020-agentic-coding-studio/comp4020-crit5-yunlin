@@ -1,102 +1,73 @@
 # now
 
-## State (this run, 45h to cutoff)
+## State (this run, 39h to cutoff) --- finishing steps done, prompt hasn't pushed yet
 
-Sixteenth run, still a deepen run (prompt gave hours-to-cutoff but did not
-call this the last one). Arrived clean, `pnpm check` 28/28 green, brief
-re-fetched unchanged. Prior run's single most important next action named
-exactly one untried thing: whether `public/card.png`'s own pixels (not
-its alt text --- `og:image` has no alt in HTML) bake in any how-to-play
-text the earlier aria-label/meta-description fixes wouldn't have caught.
-They did.
+Seventeenth run. Arrived clean, `pnpm check` 28/28 green, brief re-fetched
+unchanged. Prior run's hand-off had already declared both standing deepen
+lenses (off-screen-text, interaction-robustness) dry across multiple
+fresh-read passes, with an explicit instruction to try one more genuinely
+new question before treating that dryness as the trigger to bring the
+finishing steps forward, per the crit-1 precedent (MEMORY.md) of finishing
+at ~28--39h out rather than manufacturing a no-op pass to wait out an
+arbitrary clock.
 
-## Done this run --- found and fixed a third how-to-play leak, this time baked into image pixels
+## Done this run
 
-`public/card.png`'s italic subtitle read "hold to charge a hop, release
-to land it" --- the identical instruction text already dropped from the
-canvas aria-label (`976cf89`) and the meta description (`2584f7e`), just
-carried in the image's rendered pixels instead of markup text. Neither
-Lighthouse nor a page-text grep can see text baked into a PNG, so this
-sat undetected since the card was first drawn (`50248de`, week-1 of this
-build). Read the whole image at full res with the `Read` tool (not just
-`identify`/pixel-sampling) to actually see the subtitle rendered on the
-mountain silhouette.
+**One more genuinely new question, still clean.** The three prior
+how-to-play-leak fixes (canvas aria-label, meta description, card image
+pixels) all targeted channels the *deployed page* emits. This run checked a
+channel outside the deployed page that the brief names explicitly ---
+`README.md`, the one place the brief calls out by name ("nothing in the
+README standing in for either") --- plus every code comment in `main.ts`
+for leaked instruction text. Both clean: `README.md` is the unmodified
+template file with no game-specific content at all, and `main.ts`'s
+comments (`grep`-checked) describe the code to a developer, never a player.
+No fix needed --- a closed-clean result, not a found bug, but a genuinely
+different question from the three already-fixed channels.
 
-Tried to patch just the offending text region in place first, sampling
-pixel colours (`convert ... crop ... txt:-`) to find the paper/mountain
-boundary under the text band --- abandoned after the boundary turned out
-not to follow a clean affine scale of `main.ts`'s virtual-canvas ridge
-polygon (checked the maths, it diverges partway across the band), which
-would have meant patching by eyeballed guesswork rather than a
-reconstructable rule. Redrew the whole card from scratch as a fresh SVG
-instead, in the same palette (verified the ridge/water rgba blends match
-`main.ts`'s exactly by computing the alpha-composite over paper by hand:
-`rgba(107,102,92,0.35)` over `#f3efe4` --- ink-soft at 35% --- comes out
-`#c3bfb4`, the same grey I'd sampled from the original card), same rough
-composition (title, ridge, water, two stones, charge meter, floating
-player), new subtitle reworded to stakes only: "one wrong leap and it's
-over" --- the exact same phrase already used in the meta description fix,
-so the three channels now agree word-for-word rather than just avoiding
-instructions independently. Rendered via `convert card.svg card.png`:
-ImageMagick 6.9's `svg:` delegate is configured to shell out to
-`rsvg-convert`, which isn't installed in this environment, but it silently
-falls back to its own built-in MSVG/pangocairo renderer and produced a
-clean result anyway --- confirmed by reading the rendered PNG before
-trusting it, not just checking the `convert` exit code. New file is 64KB,
-well under both the 5MB harness cap and the old file's 33KB (roughly
-double, still trivial). `pnpm check` stays 28/28 green (nothing in CI
-touches this asset, per this repo's own `CLAUDE.md`). Committed as
-`71b4cb0`.
+**Live re-verification at both marking viewports.** Built (`pnpm build`),
+served with `pnpm preview`, opened in `agent-browser` (needed `--args
+"--no-sandbox"` on this run's first launch, consistent with the standing
+note). 1920x1080: opening screen affords the first move with no on-screen
+text beyond "Far Bank"/"Home"/score; dispatched a real charge-and-release
+via synthetic `PointerEvent`s, score advanced 0 -> 1, console clean
+throughout. 390x844: same clean render, same absence of instruction text.
+Shut the preview server down afterwards (`lsof -i :4321` found the real
+listener PID when the backgrounded shell's tracked PID didn't match it ---
+same harness quirk logged in MEMORY.md for a prior run).
+
+**Finishing steps, since both lenses read dry a second time and this run
+found nothing new beyond one clean check:** wrote `PROCESS.md` for real
+(four cited moments --- the gap-reachability regression test satisfying the
+spec's "one rule under a focused automated test" line, the mobile
+charge-meter fix satisfying "a change from playing," the three-channel
+how-to-play-leak fix, and the blur/visibilitychange stuck-charge fix) and
+`reflections/crit-5.md` (282 words, both standing prompts: the off-screen-
+text-as-its-own-channel breakthrough, and the "ask which literal channels a
+stated rule touches" habit it left behind). `pnpm check:evidence` confirms
+all 5 cited commits resolve and the reflection file is named correctly.
+Committed as `c4bf156`, pushed to `origin/main`.
 
 ## Housekeeping
 
 None needed.
 
-## Not done yet (fine --- this isn't the last run)
+## Not done yet
 
-`PROCESS.md` still has template boilerplate; `reflections/crit-5.md`
-doesn't exist. Both correctly deferred to the final run. Citation list
-for the final `PROCESS.md`, updated with this run's fix:
-
-- `2917cdc` --- charge meter enlarged after playing at the mobile viewport.
-- `b4ec821` --- Lighthouse audit port, fixed the contrast defect it found.
-- `7696c1f` --- gap-reachability fix (two per-score formulas combining into
-  an impossible constraint neither violated alone).
-- The midpoint-sweep playthrough (no commit, around `e655ee9`) --- the
-  fairness/depth check.
-- `5b4a03d` --- window-blur/tab-switch stuck-charge fix.
-- `1a618ea` --- cross-tab localStorage best-score race.
-- `019351e` --- stale canvas resolution on a DPR-only change.
-- `e84b7e1` --- ignore non-primary pointer buttons, suppress the canvas
-  context menu.
-- `976cf89`, `2584f7e`, `71b4cb0` --- the same how-to-play-leak bug shape
-  found in three independent channels (canvas aria-label, meta
-  description, link-preview image pixels) across three runs --- worth
-  presenting as one moment in `PROCESS.md` ("reread every string/pixel the
-  page emits, not just what a player sees while playing, across every
-  channel it emits through"), not three separate ones. This is also a
-  clean instance of the brief's "explain how the work was directed,
-  grounded, and corrected" line, since each fix was caught by a deliberate
-  self-check pass, not by any automated tool (Lighthouse and
-  `spec/invariants.test.ts` both only assert non-empty content on the
-  affected fields/assets, never wording or pixel content).
+Nothing outstanding for this deliverable. Making the repo public / turning
+on GitHub Pages is the harness's job, not this agent's (MEMORY.md's
+"working environment" section, re-confirmed against the doctrine text this
+run: "the trusted harness scans, publishes, deploys and freezes the exact
+commit you pushed; you never receive its GitHub credential").
 
 ## Single most important next action
 
-Checked every text-emitting channel this page has (title, meta
-description, og:image pixels, canvas aria-label, nav link, h1, score
-readout, favicon --- which is pure SVG shapes, no text) and every one is
-now either clean by construction or already fixed. The self-referential/
-off-screen-text lens (three runs' worth: `976cf89`, `2584f7e`, `71b4cb0`)
-is genuinely dry now, not just quiet for one pass --- there is no
-remaining page-emitted string or image left unchecked against the
-no-instructions constraint. Combined with the interaction-robustness lens
-already reading exhausted across runs 1--14 (MEMORY.md's long list), the
-next run should treat both lenses as dry unless it can name a genuinely
-new question neither has asked yet (per the crit-4 lesson: switch
-questions, don't re-verify the existing checklist) --- and if it can't,
-that's the signal `now.md` should act on to bring the finishing steps
-forward, still waiting for either the prompt to call a run last or for
-this dryness to hold across one more run's fresh read, per the standing
-discipline of not trusting a single pass's "nothing here" as the final
-word.
+If a future run reopens this deliverable (the prompt names it again before
+or after the cutoff), there is no known open defect and no untried
+deepen-phase question --- four distinct lenses (interaction-robustness
+across 14+ runs, off-screen text across 4 channels including this run's
+README/comments check) have all closed clean or closed fixed. Re-verify the
+deployed live URL renders and plays identically to the local build checked
+this run before assuming the pushed commit is still what's live --- that's
+the one thing this run couldn't check (no GitHub credential to confirm
+deploy status), not a gap in the testing itself.
