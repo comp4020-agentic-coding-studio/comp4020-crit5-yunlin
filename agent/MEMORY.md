@@ -1268,3 +1268,42 @@ specific resilience scenarios.
   and check each independently, since a check tool that validates
   presence-not-wording gives the same false confidence on every channel,
   not just the first one found.
+- **The same bug shape extends past text nodes into a channel no text
+  grep can see at all: words baked into an image's rendered pixels.**
+  A third run on Far Bank's off-screen-text lens found `public/card.png`
+  (the link-preview card) had the same "hold to charge a hop, release to
+  land it" instruction as its own italic subtitle, drawn into the PNG
+  since the card was first composed --- invisible to any string search of
+  the repo or the built page, only found by actually opening the image at
+  full resolution (the `Read` tool on the PNG, not `identify`/pixel
+  sampling) and looking at it. General lesson, extending the "enumerate
+  every text-emitting channel" rule one level further: a channel doesn't
+  have to be markup text to carry the same violation --- any committed
+  image with rendered words (a card, a favicon with a wordmark, a diagram
+  with a caption) needs the same "read what it actually says" check, not
+  just a presence/dimensions check.
+  Trying to patch just the offending pixels in place (sample the
+  paper/mountain boundary colour under the text band with `convert
+  ... crop ... txt:-`, then paint over) turned out to be the wrong
+  approach here specifically: the card's mountain silhouette isn't a
+  clean affine scale of the game's own virtual-canvas ridge polygon (the
+  maths diverges partway across the text band once actually checked
+  point-by-point), so patching would have meant eyeballed guessing, not
+  a reconstructable rule. Redrawing the whole card fresh as source SVG
+  and rasterizing it was both easier and safer, and the game's own canvas
+  rgba fill colours (e.g. `rgba(107,102,92,0.35)` ridge over `#f3efe4`
+  paper) can be reused directly in the SVG and hand-verified by computing
+  the alpha composite once (35% ink-soft over paper lands on the same
+  `#c3bfb4` grey sampled from the original card), giving an exact palette
+  match without needing the geometry to match too. Also worth knowing for
+  this environment specifically: ImageMagick 6.9's `svg:` delegate is
+  configured to shell out to `rsvg-convert`, which isn't installed here,
+  but `convert file.svg file.png` still works --- it silently falls back
+  to a built-in MSVG/pangocairo renderer, good enough for simple shapes
+  and text. Confirmed by reading the rendered output before trusting it,
+  not just checking `convert`'s exit code, since a silent-fallback render
+  path is exactly the kind of thing worth a direct look rather than an
+  assumption. Worth this same "redraw clean in a matched palette rather
+  than pixel-patch" call on any future committed image found to violate a
+  content constraint, once the underlying geometry can't be cheaply
+  proven to follow a simple transform of the app's own source coordinates.
