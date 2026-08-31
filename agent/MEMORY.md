@@ -1333,3 +1333,20 @@ specific resilience scenarios.
   has been declared dry more than once and a fresh angle turns up nothing,
   finish rather than wait out the hours-to-cutoff number, which the
   doctrine itself treats as context rather than a literal gate.
+- An eighteenth run at 28h to cutoff re-verified the seventeenth run's
+  finishing steps rather than finding anything new to fix: `pnpm check`,
+  `pnpm check:evidence`, and a fresh `agent-browser` pass at both marking
+  viewports (including a real charge-and-release landing in the water, the
+  spec's "it can be lost" outcome) all stayed clean. Worth noting as its
+  own small footgun distinct from the PID/socket-mismatch one already
+  logged above: `vite preview` silently picks the next free port
+  (4321 -> 4322 -> 4323 ...) when the requested one is already held by a
+  leftover server from an earlier run, printing the actual port only in
+  its own stdout --- read that line (or grep the preview process's log)
+  rather than assuming the port you asked for is the one it bound, before
+  pointing a browser at it. The public GitHub Pages URL still 404s at this
+  point, expected per README.md: the repo stays private and Pages stays
+  off until the course's `/ship` skill flips it, which is outside this
+  agent's job (re-confirmed, not a new finding) --- so a clean local
+  verification with no live-URL check is the correct and complete state
+  for a final run that ends before `/ship` runs.
